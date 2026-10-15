@@ -228,7 +228,13 @@ somebody deposits into sIMD in this contract's name or sends it freshly minted s
 costs whoever does it one sIMD deposit of gas for every block they keep it up and gains them
 nothing; while it lasts, `harvest` cannot run and IMD withdrawals that need the vault wait
 (`test_withdraw_whenSomeoneDepositsIntoTheVaultInOurName_waitsOneBlock`,
-`test_harvest_whenSomeoneElseCausesAHold_failsWithTheVaultsError_forThatBlockOnly`). `exit` with
+`test_harvest_whenSomeoneElseCausesAHold_failsWithTheVaultsError_forThatBlockOnly`). There is no
+upper bound on how long: a stranger who repeats the one-wei deposit in every block keeps every
+`harvest` and every IMD withdrawal that needs the vault reverting, with the vault's own error rather
+than `HoldActive`, for as long as they pay about 60,000 gas a block; no yield reaches any target
+meanwhile, and no principal is at risk
+(`test_audit_aStrangerCanHoldTheVaultEveryBlock_andOnlyTheInKindExitIsOpen`; the launch audit's
+finding fb892c57, kept as it is: `ADAPTATION.md`). `exit` with
 `inKind` is never held: it hands over sIMD shares worth the principal
 (`test_exit_inKind_worksInTheStakeBlock_andTheSharesAreWorthThePrincipal`,
 `test_fork_holdCausedBySomeoneElse_inKindExitStillWorks`).
@@ -269,7 +275,15 @@ the cost of thirty requests at `Questions.costOf`, and the rest stays staked
 - While Questions states no cost for the feed (the Intake is not selling its action, or asks more
   than the feed's cap), nothing is harvested and no meter endowment can be created for it
   (`test_createForMeter_revertsWhileTheFeedCannotBeAsked_andWorksOnceItCan`, `integration/`:
-  `test_meter_theRunwayFollowsTheRealCost`).
+  `test_meter_theRunwayFollowsTheRealCost`). That wait has no other end. A meter endowment has no
+  fallback and no other target, there is no sweep, and depositors take back exactly their
+  principal, so the yield it holds, earned before or after the feed stopped being sold, stays staked
+  in Endowments until the feed is sold again, even after the last depositor has left. If the feed is
+  never sold again it stays there for good
+  (`test_audit_aMeterEndowmentsYieldWaitsForAsLongAsTheFeedIsNotSold`; the launch audit's finding
+  04444071, kept as it is: `ADAPTATION.md`). Whoever creates a meter endowment accepts that: the
+  design gives the yield no address but the feed's meter, so that no stranger's call and no later
+  choice can send it anywhere else.
 - Launch A's Payroll tops its house feeds' meters up to a runway of its own, 14 or 4 requests,
   counted from its own meter shares (`Questions.redeemable`), so an endowment that keeps a meter full
   does not take Payroll's place. The endowment's runway counts the whole meter, Payroll's IMD
@@ -330,7 +344,9 @@ deposit until it has earned a little
 
 **E12. Waiting.** A deposit earns nothing for its endowment until the next `stake`, up to 50 blocks
 away and only when somebody calls it. `harvestable` and `harvest` of a meter endowment revert if
-Questions cannot be read.
+Questions cannot be read. Two waits have no bound inside this contract: a hold that somebody else
+renews every block (E3), and a meter endowment's yield while its feed is not sold (E5). Neither
+touches principal; the first ends when the stranger stops paying, the second when the feed is sold.
 
 ## 5. Limits of Zap
 
